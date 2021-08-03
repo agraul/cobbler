@@ -14,3 +14,6 @@ sleep 2
 
 echo "Show Cobbler version"
 cobbler version
+
+# start in the Docker container
+/bin/bash
