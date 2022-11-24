@@ -76,7 +76,7 @@ class Item:
                 from_search = input_converters.input_string_or_dict(
                     from_search, allow_multiples=True
                 )
-                for dict_key in list(from_search.keys()):
+                for dict_key in from_search.keys():
                     dict_value = from_search[dict_key]
                     if dict_key not in from_obj:
                         return False
@@ -764,7 +764,7 @@ class Item:
         """
         # used by find() method in collection.py
         data = self.to_dict()
-        for (key, value) in list(kwargs.items()):
+        for key, value in kwargs.items():
             # Allow ~ to negate the compare
             if value is not None and value.startswith("~"):
                 res = not self.find_match_single_key(data, key, value[1:], no_errors)
@@ -815,7 +815,7 @@ class Item:
                 "interface",
             ]:
                 key_found_already = True
-                for (name, interface) in list(data["interfaces"].items()):
+                for name, interface in data["interfaces"].items():
                     if value == name:
                         return True
                     if value is not None and key in interface:
