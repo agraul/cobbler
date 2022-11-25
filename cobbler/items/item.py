@@ -9,6 +9,7 @@ Cobbler module that contains the code for a generic Cobbler item.
 import copy
 import enum
 import fnmatch
+import functools
 import logging
 import pprint
 import re
@@ -819,7 +820,7 @@ class Item:
                     if value == name:
                         return True
                     if value is not None and key in interface:
-                        if _matches(value, interface[key]):
+                        if _matches({"str": value}, interface[key]):
                             return True
 
         if key not in data:
@@ -1002,6 +1003,16 @@ class Item:
         )
         return results
 
+_fnmatch_chars = {"?", "*", "["}
+@functools.lru_cache
+def _match_str(haystack: str, needle: str) -> bool:
+    pattern = needle.lower()
+    name = haystack.lower()
+    if set(pattern) & _fnmatch_chars:
+        return fnmatch.fnmatch(name, pattern)
+    else:
+        return pattern == name
+
 
 def _matches(haystack: dict, needle: str) -> bool:
     """Checks if needle is in haystack.
@@ -1025,13 +1036,7 @@ def _matches(haystack: dict, needle: str) -> bool:
     # comparing strings
     # TODO: move out into own function
     if "str" in haystack:
-        name = haystack["str"].lower()
-        pattern = needle.lower()
-
-        if any(c in name for c in ("?", "*", "[")):
-            return fnmatch.fnmatch(name, pattern)
-        else:
-            return haystack == name
+        return _match_str(haystack["str"], needle)
 
     # haystack is list
     # TODO: move out into own function
