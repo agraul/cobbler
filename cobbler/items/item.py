@@ -819,7 +819,7 @@ class Item:
                     if value == name:
                         return True
                     if value is not None and key in interface:
-                        if self.__find_compare(interface[key], value):
+                        if _matches(value, interface[key]):
                             return True
 
         if key not in data:
@@ -834,7 +834,7 @@ class Item:
 
         if value is None:
             return True
-        return self.__find_compare(value, data[key])
+        return _matches(data[key], value)
 
     def dump_vars(
         self, formatted_output: bool = True, remove_dicts: bool = False
@@ -1001,3 +1001,62 @@ class Item:
             len(results),
         )
         return results
+
+
+def _matches(haystack: dict, needle: str) -> bool:
+    """Checks if needle is in haystack.
+
+    haystack is always a dict. To check other types, use a dict with the
+    following structure:
+
+        {"type": X}
+
+    supported types are:
+
+        {"str": "x"}
+        {"list": ["x", "y", "z"]}
+        {"bool": False}
+
+    Only one of these special keys can be used. If none of them are in haystack,
+    the whole dict is checked.
+    """
+
+
+    # comparing strings
+    # TODO: move out into own function
+    if "str" in haystack:
+        name = haystack["str"].lower()
+        pattern = needle.lower()
+
+        if any(c in name for c in ("?", "*", "[")):
+            return fnmatch.fnmatch(name, pattern)
+        else:
+            return haystack == name
+
+    # haystack is list
+    # TODO: move out into own function
+    if "list" in haystack:
+        haystack_set = set(haystack["list"])
+        needle_maybe_inherit = input_converters.input_string_or_list(needle)
+        if isinstance(needle_maybe_inherit, str):
+            return needle_maybe_inherit in haystack_set
+        else:
+            return set(needle_maybe_inherit) <= haystack_set
+
+    # TODO: move out into own function
+    if "bool" in haystack:
+        needle_bool = needle.lower() in ("true", "1", "y", "yes")
+        return haystack["bool"] == needle_bool
+
+    # haystack is a real dict
+    # TODO: move out into own function
+    needle_dict = input_converters.input_string_or_dict(
+        needle, allow_multiples=True
+    )
+    # FIXME: catch exception on access instead of doing this check
+    if isinstance(needle_dict, str):
+        raise TypeError(f"Can't compare {needle_dict} with a dict")
+
+    # a.items() & b.items() gives us the set of items in a that are in b
+    # items are only included if both the key and the value match (using hashing)
+    return len(needle_dict) == len(needle_dict.items() & haystack.items())
