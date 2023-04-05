@@ -1,5 +1,8 @@
 # vim: ft=dockerfile
+# Define the names/tags of the container
 #!BuildTag: cobbler-test-github:uyuni-master cobbler-test-github:uyuni-master.%RELEASE%
+# We don't want to version pin our dependencies for testing. Always retrieve what is up to date.
+# hadolint global ignore=DL3037
 
 # WARNING! This is not in any way production ready. It is just for testing!
 FROM opensuse/leap:15.3
@@ -17,6 +20,10 @@ LABEL org.opencontainers.image.created="%BUILDTIME%"
 # ENV Variables we are using.
 ENV container docker
 ENV DISTRO SUSE
+
+# Custom repository
+RUN zypper ar https://download.opensuse.org/repositories/home:/cobbler-project:/release33/15.3/ "Cobbler 3.3.x release project (15.3)" \
+    && zypper --gpg-auto-import-keys refresh
 
 # Runtime & dev dependencies
 RUN zypper install --no-recommends -y \
@@ -64,12 +71,14 @@ RUN zypper install --no-recommends -y \
     which                      \
     xorriso                    \
     mtools                     \
-    dosfstools
+    dosfstools                 \
+    && zypper clean
 
 # Add virtualization repository
 RUN zypper install -y \
     python3-hivex     \
-    python3-pefile
+    python3-pefile    \
+    && zypper clean
 
 # Add bootloader packages
 RUN zypper install --no-recommends -y \
@@ -77,14 +86,16 @@ RUN zypper install --no-recommends -y \
     shim \
     ipxe-bootimgs \
     grub2 \
-#    grub2-i386-efi \
-    grub2-x86_64-efi
-#    grub2-arm64-efi
+    # grub2-i386-efi \
+    grub2-x86_64-efi \
+    # grub2-arm64-efi \
+    && zypper clean
 
 # Required for dhcpd
 RUN zypper install --no-recommends -y \
     system-user-nobody                \
-    sysvinit-tools
+    sysvinit-tools \
+    && zypper clean
 
 # Required for ldap tests
 RUN zypper install --no-recommends -y \
@@ -92,60 +103,64 @@ RUN zypper install --no-recommends -y \
     openldap2                         \
     openldap2-client                  \
     hostname                          \
-    python3-ldap
+    python3-ldap \
+    && zypper clean
 
 # Required for reposync tests
 RUN zypper install --no-recommends -y \
     python3-librepo                   \
     dnf                               \
     dnf-plugins-core                  \
-    wget
+    && zypper clean
 
 # Required for reposync apt test
 RUN zypper install --no-recommends -y \
     perl-LockFile-Simple              \
     perl-Net-INET6Glue                \
     perl-LWP-Protocol-https           \
-    ed
-# FIXME: We don't have debmirror in the right OBS projects.
-#RUN dnf install -y http://download.fedoraproject.org/pub/fedora/linux/releases/35/Everything/x86_64/os/Packages/d/debmirror-2.35-2.fc35.noarch.rpm
+    ed                                \
+    debmirror                         \
+    && zypper clean
 
 # Dependencies for system-tests
 RUN zypper install --no-recommends -y \
     dhcp-server                       \
     iproute2                          \
     qemu-kvm                          \
-    time
+    time \
+    && zypper clean
 
 # Allow dhcpd to listen on any interface
 RUN sed -i 's/DHCPD_INTERFACE=""/DHCPD_INTERFACE="ANY"/' /etc/sysconfig/dhcpd
 
 # Add Testuser for the PAM tests
-RUN useradd -p $(perl -e 'print crypt("test", "password")') test
+RUN useradd -p "$(perl -e 'print crypt(\"test\", \"password\")')" test
 
 # Add Developer scripts to PATH
 ENV PATH="/code/docker/develop/scripts:${PATH}"
 
-# Install packages and dependencies via pip
+# Install additional packages
 RUN zypper install --no-recommends -y \
-    python3-codecov            \
-    python3-magic              \
-    python3-pycodestyle        \
-    python3-pyflakes           \
-    python3-pytest             \
-    python3-pytest-cov         \
-    python3-pytest-mock
+    python3-codecov                   \
+    python3-magic                     \
+    python3-pycodestyle               \
+    python3-pyflakes                  \
+    python3-pytest                    \
+    python3-pytest-cov                \
+    python3-pytest-mock               \
+    python3-pytest-pythonpath         \
+    && zypper clean
+
 
 # Enable the Apache Modules
-RUN ["a2enmod", "version"]
-RUN ["a2enmod", "proxy"]
-RUN ["a2enmod", "proxy_http"]
-RUN ["a2enmod", "wsgi"]
+RUN a2enmod version \
+    && a2enmod proxy \
+    && a2enmod proxy_http \
+    && a2enmod wsgi
 
 # create working directory
-RUN ["mkdir", "/code"]
-VOLUME ["/code"]
 WORKDIR "/code"
+VOLUME ["/code"]
 
 # Set this as an entrypoint
 CMD ["/bin/bash"]
