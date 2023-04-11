@@ -63,6 +63,7 @@ def create_testfile(tmp_path):
         if not os.path.exists(path):
             Path(path).touch()
         return path
+
     return _create_testfile
 
 
@@ -71,6 +72,7 @@ def create_kernel_initrd(create_testfile):
     def _create_kernel_initrd(name_kernel, name_initrd):
         create_testfile(name_kernel)
         return os.path.dirname(create_testfile(name_initrd))
+
     return _create_kernel_initrd
 
 
@@ -157,7 +159,11 @@ def create_system(request, cobbler_api):
     def _create_system(profile_name="", image_name="", name=""):
         test_system = System(cobbler_api)
         if name == "":
-            test_system.name = request.node.originalname if request.node.originalname else request.node.name
+            test_system.name = (
+                request.node.originalname
+                if request.node.originalname
+                else request.node.name
+            )
         else:
             test_system.name = name
         if profile_name != "":
@@ -201,8 +207,17 @@ def cleanup_leftover_items():
     """
     Will delete all JSON files which are left in Cobbler before a testrun!
     """
-    cobbler_collections = ["distros", "files", "images", "menus", "mgmtclasses", "packages", "profiles", "repos",
-                           "systems"]
+    cobbler_collections = [
+        "distros",
+        "files",
+        "images",
+        "menus",
+        "mgmtclasses",
+        "packages",
+        "profiles",
+        "repos",
+        "systems",
+    ]
     for collection in cobbler_collections:
         path = os.path.join("/var/lib/cobbler/collections", collection)
         for file in os.listdir(path):
@@ -217,7 +232,9 @@ def fk_initrd(request):
 
     :return: A filename as a string.
     """
-    return "initrd_%s.img" % (request.node.originalname if request.node.originalname else request.node.name)
+    return "initrd_%s.img" % (
+        request.node.originalname if request.node.originalname else request.node.name
+    )
 
 
 @pytest.fixture(scope="function")
@@ -227,7 +244,9 @@ def fk_kernel(request):
 
     :return: A path as a string.
     """
-    return "vmlinuz_%s" % (request.node.originalname if request.node.originalname else request.node.name)
+    return "vmlinuz_%s" % (
+        request.node.originalname if request.node.originalname else request.node.name
+    )
 
 
 @pytest.fixture(scope="function")
