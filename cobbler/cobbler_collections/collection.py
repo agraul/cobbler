@@ -325,10 +325,6 @@ class Collection:
                         d.initrd = d.initrd.replace(path, newpath)
                         self.collection_mgr.serialize_one_item(d)
 
-        if ref.COLLECTION_TYPE in ('profile', 'system'):
-            if ref.parent is not None:
-                ref.parent.children.remove(oldname)
-
         # Now descend to any direct ancestors and point them at the new object allowing the original object to be
         # removed without orphanage. Direct ancestors will either be profiles or systems. Note that we do have to
         # care as setting the parent is only really meaningful for subprofiles. We ideally want a more generic parent
@@ -422,11 +418,6 @@ class Collection:
         with self.lock:
             self.listing[ref.name] = ref
 
-        # update children cache in parent object in case it is not in there already
-        if ref.parent and ref.name not in ref.parent.children:
-            ref.parent.children.append(ref.name)
-            self.logger.debug("Added child \"%s\" to parent \"%s\"", ref.name, ref.parent.name)
-
         # perform filesystem operations
         if save and self.api.is_cobblerd:
             # Save just this item if possible, if not, save the whole collection
@@ -446,7 +437,7 @@ class Collection:
                     if ref.virt_type == "openvz":
                         ref.enable_menu = False
                     self.lite_sync.add_single_profile(ref.name)
-                    self.api.sync_systems(systems=ref.get_children())
+                    self.api.sync_systems(systems=ref.get_children_names())
                 elif isinstance(ref, distro.Distro):
                     self.lite_sync.add_single_distro(ref.name)
                 elif isinstance(ref, image.Image):

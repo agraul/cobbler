@@ -173,9 +173,6 @@ class Profile(item.Item):
         :param parent: The name of the parent object.
         :raises CX: In case self parentage is found or the profile given could not be found.
         """
-        old_parent = self.parent
-        if isinstance(old_parent, item.Item) and self.name in old_parent.children:
-            old_parent.children.remove(self.name)
         if not parent:
             self._parent = ''
             return
@@ -187,9 +184,6 @@ class Profile(item.Item):
             raise CX('profile "%s" not found, inheritance not possible' % parent)
         self._parent = parent
         self.depth = found.depth + 1
-        new_parent = self.parent
-        if isinstance(new_parent, item.Item) and self.name not in new_parent.children:
-            new_parent.children.append(self.name)
 
     @property
     def arch(self):
@@ -232,13 +226,8 @@ class Profile(item.Item):
         distro = self.api.distros().find(name=distro_name)
         if distro is None:
             raise ValueError('distribution "%s" not found' % distro_name)
-        old_parent = self.parent
-        if isinstance(old_parent, item.Item) and self.name in old_parent.children:
-            old_parent.children.remove(self.name)
         self._distro = distro_name
         self.depth = distro.depth + 1    # reset depth if previously a subprofile and now top-level
-        if self.name not in distro.children:
-            distro.children.append(self.name)
 
     @InheritableProperty
     def name_servers(self) -> list:
@@ -778,22 +767,3 @@ class Profile(item.Item):
             if not menu_list.find(name=menu):
                 raise CX("menu %s not found" % menu)
         self._menu = menu
-
-    @property
-    def children(self) -> list:
-        """
-        This property represents all children of a distribution. It should not be set manually.
-
-        :getter: The children of the distro.
-        :setter: No validation is done because this is a Cobbler internal property.
-        """
-        return self._children
-
-    @children.setter
-    def children(self, value: list):
-        """
-        Setter for the children property.
-
-        :param value: The new children of the distro.
-        """
-        self._children = value

@@ -73,7 +73,7 @@ def test_get_children(cobbler_api):
     titem = Item(cobbler_api)
 
     # Act
-    result = titem.get_children()
+    result = titem.get_children_names()
 
     # Assert
     assert result == []

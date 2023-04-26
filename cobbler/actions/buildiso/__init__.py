@@ -209,9 +209,10 @@ class BuildIso:
 
     def parse_profiles(self, profiles, distro_obj):
         profile_names = utils.input_string_or_list_no_inherit(profiles)
+        distro_children = distro_obj.children
         if profile_names:
             self.logger.debug("Checking that %s belong to distro %s", profiles, distro_obj.name)
-            orphans = set(profile_names) - set(distro_obj.children)
+            orphans = set(profile_names) - set(distro_children)
             if len(orphans) > 0:
                 raise ValueError(
                     "When building a standalone ISO, all --profiles must be"
@@ -221,7 +222,7 @@ class BuildIso:
                 )
             return self.filter_profiles(profile_names)
         else:
-            return self.filter_profiles(distro_obj.children)
+            return self.filter_profiles(distro_children)
 
     def _copy_isolinux_files(self):
         """

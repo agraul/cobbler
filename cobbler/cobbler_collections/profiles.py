@@ -73,12 +73,6 @@ class Profiles(collection.Collection):
             if with_triggers:
                 utils.run_triggers(self.api, obj, "/var/lib/cobbler/triggers/delete/profile/pre/*", [])
 
-        if obj.parent is not None and obj.name in obj.parent.children:
-            obj.parent.children.remove(obj.name)
-            # ToDo: Only serialize parent object, use:
-            #       Use self.collection_mgr.serialize_one_item(obj.parent)
-            self.api.serialize()
-
         self.lock.acquire()
         try:
             del self.listing[name]

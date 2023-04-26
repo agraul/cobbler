@@ -1472,29 +1472,11 @@ class System(Item):
                 'Profile with the name "%s" is not existing' % profile_name
             )
 
-        old_parent = self.parent
-        if isinstance(old_parent, Item):
-            if self.name in old_parent.children:
-                old_parent.children.remove(self.name)
-            else:
-                self.logger.debug(
-                    'Name of System "%s" was not found in the children of Item "%s"',
-                    self.name,
-                    self.parent.name,
-                )
-        else:
-            self.logger.debug(
-                'Parent of System "%s" not found. Thus skipping removal from children list.',
-                self.name,
-            )
-
         self.image = ""  # mutual exclusion rule
 
         self._profile = profile_name
         self.depth = profile.depth + 1  # subprofiles have varying depths.
         new_parent = self.parent
-        if isinstance(new_parent, Item) and self.name not in new_parent.children:
-            new_parent.children.append(self.name)
 
     @property
     def image(self) -> str:
@@ -1528,29 +1510,11 @@ class System(Item):
         if img is None:
             raise ValueError('Image with the name "%s" is not existing' % image_name)
 
-        old_parent = self.parent
-        if isinstance(old_parent, Item):
-            if self.name in old_parent.children:
-                old_parent.children.remove(self.name)
-            else:
-                self.logger.debug(
-                    'Name of System "%s" was not found in the children of Item "%s"',
-                    self.name,
-                    self.parent.name,
-                )
-        else:
-            self.logger.debug(
-                'Parent of System "%s" not found. Thus skipping removal from children list.',
-                self.name,
-            )
-
         self.profile = ""  # mutual exclusion rule
 
         self._image = image_name
         self.depth = img.depth + 1
         new_parent = self.parent
-        if isinstance(new_parent, Item) and self.name not in new_parent.children:
-            new_parent.children.append(self.name)
 
     @InheritableProperty
     def virt_cpus(self) -> int:
@@ -2017,27 +1981,6 @@ class System(Item):
         :param baud_rate:
         """
         self._serial_baud_rate = validate.validate_serial_baud_rate(baud_rate)
-
-    @property
-    def children(self) -> List[str]:
-        """
-        children property.
-
-        :getter: Returns the value for ``children``.
-        :setter: Sets the value for the property ``children``.
-        :return:
-        """
-        return [c.name for c in self._children]
-
-    @children.setter
-    def children(self, value: List[str]):
-        """
-        Setter for the children of the System class.
-
-
-        :param value:
-        """
-        self._children = value
 
     def get_config_filename(self, interface: str, loader: Optional[str] = None):
         """

@@ -84,9 +84,6 @@ class Menu(item.Item):
         :param value: The name of the parent to set.
         :raises CX: Raised in case of self parenting or if the menu with value ``value`` is not found.
         """
-        old_parent = self._parent
-        if isinstance(old_parent, item.Item):
-            old_parent.children.remove(self.name)
         if not value:
             self._parent = ""
             return
@@ -98,41 +95,6 @@ class Menu(item.Item):
             raise CX("menu %s not found" % value)
         self._parent = value
         self.depth = found.depth + 1
-        new_parent = self._parent
-        if isinstance(new_parent, item.Item) and self.name not in new_parent.children:
-            new_parent.children.append(self.name)
-
-    @property
-    def children(self) -> list:
-        """
-        Child menu of a menu instance.
-
-        :getter: Returns the children.
-        :setter: Sets the children. Raises a TypeError if children have the wrong type.
-        """
-        return self._children
-
-    @children.setter
-    def children(self, value: List[str]):
-        """
-        Setter for the children.
-
-        :param value: The value to set the children to.
-        :raises TypeError: Raised in case the children of menu have the wrong type.
-        """
-        if not isinstance(value, list):
-            raise TypeError("Field children of object menu must be of type list.")
-        if isinstance(value, list):
-            if not all(isinstance(x, str) for x in value):
-                raise TypeError("Field children of object menu must be of type list and all items need to be menu "
-                                "names (str).")
-            self._children = []
-            for name in value:
-                menu = self.api.find_menu(name=name)
-                if menu is not None:
-                    self._children.append(name)
-                else:
-                    self.logger.warning("Menu with the name \"%s\" did not exist. Skipping setting as a child!", name)
 
     #
     # specific methods for item.Menu

@@ -473,22 +473,3 @@ class Distro(item.Item):
         if not isinstance(management_key, str):
             raise TypeError("Field redhat_management_key of object distro needs to be of type str!")
         self._redhat_management_key = management_key
-
-    @property
-    def children(self) -> list:
-        """
-        This property represents all children of a distribution. It should not be set manually.
-
-        :getter: The children of the distro.
-        :setter: No validation is done because this is a Cobbler internal property.
-        """
-        return self._children
-
-    @children.setter
-    def children(self, value: list):
-        """
-        Setter for the children property.
-
-        :param value: The new children of the distro.
-        """
-        self._children = value

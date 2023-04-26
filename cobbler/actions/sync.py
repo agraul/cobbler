@@ -28,6 +28,7 @@ import time
 from typing import Optional, List
 
 from cobbler.cexceptions import CX
+from cobbler.items.profile import Profile
 from cobbler import templar
 from cobbler import tftpgen
 from cobbler import utils
@@ -389,8 +390,8 @@ class CobblerSync:
         # Cascade sync
         kids = profile.children
         for k in kids:
-            if self.api.find_profile(name=k) is not None:
-                self.add_single_profile(k, rebuild_menu=False)
+            if isinstance(k, Profile):
+                self.add_single_profile(k.name, rebuild_menu=False)
             else:
                 self.add_single_system(k)
         if rebuild_menu:

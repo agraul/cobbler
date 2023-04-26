@@ -17,7 +17,7 @@ import logging
 import pprint
 import re
 import uuid
-from typing import Any, List, Type, Union, Dict
+from typing import Any, List, Type, Union, Dict, Set, Optional
 
 import yaml
 
@@ -113,9 +113,11 @@ class Item:
         :param api: The Cobbler API object which is used for resolving information.
         :param is_subobject: See above extensive description.
         """
+        # Prevent attempts to clear the to_dict cache before the object is initialized.
+        self._has_initialized = False
+
         self._parent = ''
         self._depth = 0
-        self._children = []
         self._ctime = 0.0
         self._mtime = 0.0
         self._uid = uuid.uuid4().hex
@@ -130,7 +132,6 @@ class Item:
         self._last_cached_mtime = 0
         self._owners: Union[list, str] = enums.VALUE_INHERITED
         self._cached_dict: Dict[bool, Any] = {True: None, False: None}
-        self._cached_dict_valid = False
         self._mgmt_classes: Union[list, str] = []
         self._mgmt_parameters: Union[dict, str] = {}
         self._conceptual_parent = None
@@ -138,6 +139,9 @@ class Item:
 
         self.logger = logging.getLogger()
         self.api = api
+
+        self._has_initialized = True
+
 
     def __eq__(self, other):
         """
@@ -149,6 +153,10 @@ class Item:
         if isinstance(other, Item):
             return self._uid == other.uid
         return False
+
+    def _is_added_to_api(self) -> bool:
+        """Check if this item instance was already to the API."""
+        return self.api.get_items(self.COLLECTION_TYPE).get(self.name) is not None
 
     def __setattr__(self, name, value):
         """
@@ -165,24 +173,22 @@ class Item:
                 "_conceptual_parent",
                 "_last_cached_mtime",
                 "_cached_dict",
-                "_cached_dict_valid",
                 "_supported_boot_loaders",
+                "_has_initialized",
             )
         ):
-            # Avoid recursive call to __setattr__
-            self._cached_dict_valid = False
-#            self._invalidate_to_dict_cache()
+            # Order is important, _is_added_to_api is more expensive and should
+            # only be executed after initialization has finished
+            if self._has_initialized and self._is_added_to_api():
+                self._invalidate_to_dict_cache()
         super().__setattr__(name, value)
 
     def _invalidate_to_dict_cache(self):
          self.__dict__["_cached_dict"] = {True: None, False: None}
          # If this item was invalidated, we need to invalidate children
          # and parents
-         if hasattr(self, "children"):
-             for child in self.children:
-                 child = self.api.find_items(what="", name=child)
-                 if child:
-                     child.__dict__["_cached_dict"] = {True: None, False: None}
+         for child in self.children:
+            child.__dict__["_cached_dict"] = {True: None, False: None}
          self.__invalidate_parents_to_dict_cache(self)
 
     def __invalidate_parents_to_dict_cache(self, node):
@@ -693,38 +699,37 @@ class Item:
         """
 
     @property
-    def children(self) -> List[str]:
+    def children(self) -> Set["Item"]:
         """
-        The list of logical children of any depth.
+        The set of logical children of any depth.
 
-        :getter: An empty list in case of items which don't have logical children.
-        :setter: Replace the list of children completely with the new provided one.
+        :getter:
         """
-        return []
+        children = set()
+        for child_type in self.CHILD_TYPES:
+            child_objects = self.api.find_items(
+                what=child_type, criteria={"parent": self.name}, return_list=True
+            )
+            self.logger.debug(f"Found children %s for %s", [c.name for c in child_objects], self.name)
+            for child_object in child_objects:
+                children.update(child_object)
+                children.update(child_object.children)
+        return children
 
-    @children.setter
-    def children(self, value):
-        """
-        This is an empty setter to not throw on setting it accidentally.
-
-        :param value: The list with children names to replace the current one with.
-        """
-        self.logger.warning("Tried to set the children property on object \"%s\" without logical children.", self.name)
-
-    def get_children(self, sort_list: bool = False) -> List[str]:
+    def get_children_names(self, sort_result: bool = False) -> List[str]:
         """
         Get the list of children names.
 
         :param sort_list: If the list should be sorted alphabetically or not.
         :return: A copy of the list of children names.
         """
-        result = copy.deepcopy(self.children)
-        if sort_list:
-            result.sort()
+        result = [c.name for c in self.children]
+        if sort_result:
+            sorted(result)
         return result
 
     @property
-    def descendants(self) -> list:
+    def descendants(self) -> set:
         """
         Get objects that depend on this object, i.e. those that would be affected by a cascading delete, etc.
 
@@ -732,17 +737,7 @@ class Item:
 
         :getter: This is a list of all descendants. May be empty if none exist.
         """
-        descendants = []
-        for child in self.children:
-            # different types with same name are possible
-            for child_type in self.CHILD_TYPES:
-                child_object = self.api.find_items(what=child_type, name=child, return_list=False)
-                # child_object is self -> infinite recursion
-                if child_object and child_object is not self:
-                    descendants.append(child_object)
-                    descendants.extend(child_object.descendants)
-
-        return descendants
+        return self.children
 
     @property
     def is_subobject(self) -> bool:
@@ -802,7 +797,7 @@ class Item:
         """
         # used by find() method in collection.py
         data = self.to_dict()
-        for (key, value) in list(kwargs.items()):
+        for key, value in kwargs.items():
             # Allow ~ to negate the compare
             if value is not None and value.startswith("~"):
                 res = not self.find_match_single_key(data, key, value[1:], no_errors)
@@ -918,6 +913,7 @@ class Item:
             dictionary.pop("ks_meta")
         if "kickstart" in dictionary:
             dictionary.pop("kickstart")
+        dictionary.pop("children", None)
 
     def from_dict(self, dictionary: dict):
         """
@@ -949,12 +945,9 @@ class Item:
                      objects raw value.
         :return: A dictionary with all values present in this object.
         """
-        # We check if cached dict exists and that children list has not changed.
-        # If children list has changed, we need to recalculate the dict.
-        if self._cached_dict[resolved] and self._cached_dict_valid and self._cached_dict[resolved]["children"] == self.children:
+        # We check if cached dict exists
+        if self._cached_dict[resolved]:
             return self._cached_dict[resolved]
-        elif self._cached_dict[resolved] and not self._cached_dict_valid:
-            self._invalidate_to_dict_cache()
 
         value = {}
         for key in self.__dict__:
@@ -992,7 +985,6 @@ class Item:
         if "autoinstall_meta" in value:
             value.update({"ks_meta": value["autoinstall_meta"]})
         self._cached_dict[resolved] = value
-        self._cached_dict_valid = True
         return value
 
     def serialize(self) -> dict:
