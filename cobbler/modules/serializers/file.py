@@ -163,4 +163,5 @@ def deserialize(collection, topological: bool = True):
         elif isinstance(datastruct, list):
             collection.from_list(datastruct)
     except Exception as exc:
+        logging.exception(exc)
         logger.error(f"Error while loading a collection: {exc}. Skipping this collection!")

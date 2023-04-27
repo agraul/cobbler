@@ -144,13 +144,10 @@ class Collection:
             except Exception:
                 return self.listing.get(kargs["name"], None)
 
-        self.lock.acquire()
-        try:
-            for (name, obj) in list(self.listing.items()):
+        with self.lock:
+            for name, obj in self.listing.items():
                 if obj.find_match(kargs, no_errors=no_errors):
                     matches.append(obj)
-        finally:
-            self.lock.release()
 
         if not return_list:
             if len(matches) == 0:
@@ -220,6 +217,7 @@ class Collection:
                 item = self.factory_produce(self.api, item_dict)
                 self.add(item)
             except Exception as exc:
+                logging.exception(exc)
                 self.logger.error(
                     "Error while loading a collection: %s. Skipping this collection!",
                     exc,

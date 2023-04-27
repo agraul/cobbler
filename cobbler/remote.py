@@ -1826,7 +1826,7 @@ class CobblerXMLRPCInterface:
         :param token: The API-token obtained via the login() method.
         :return: True if the action was successful. Otherwise False.
         """
-        self._log("modify_item(%s)" % what, object_id=object_id, attribute=attribute, token=token)
+        self._log("modify_item(%s)" % what, object_id=object_id, attribute=attribute, token=token, debug=True)
         obj = self.__get_object(object_id)
         self.check_access(token, "modify_%s" % what, obj, attribute)
 

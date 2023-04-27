@@ -57,15 +57,16 @@ def test_uid(cobbler_api):
     assert titem.uid == "uid"
 
 
-def test_children(cobbler_api):
+def test_children(create_distro, create_profile, create_system):
     # Arrange
-    titem = Item(cobbler_api)
+    d = create_distro()
+    p = create_profile(d.name)
+    s = create_system(p.name)
 
     # Act
-    titem.children = []
 
     # Assert
-    assert titem.children == []
+    assert d.children == [p, s]
 
 
 def test_get_children(cobbler_api):
@@ -95,7 +96,9 @@ def test_get_conceptual_parent(request, cobbler_api, create_distro, create_profi
     tmp_distro = create_distro()
     tmp_profile = create_profile(tmp_distro.name)
     titem = Profile(cobbler_api)
-    titem.name = "subprofile_%s" % (request.node.originalname if request.node.originalname else request.node.name)
+    titem.name = "subprofile_%s" % (
+        request.node.originalname if request.node.originalname else request.node.name
+    )
     titem.parent = tmp_profile.name
 
     # Act
@@ -297,13 +300,17 @@ def test_fetchable_files(cobbler_api):
 def test_sort_key(request, cobbler_api):
     # Arrange
     titem = Item(cobbler_api)
-    titem.name = request.node.originalname if request.node.originalname else request.node.name
+    titem.name = (
+        request.node.originalname if request.node.originalname else request.node.name
+    )
 
     # Act
     result = titem.sort_key(sort_fields=["name"])
 
     # Assert
-    assert result == [request.node.originalname if request.node.originalname else request.node.name]
+    assert result == [
+        request.node.originalname if request.node.originalname else request.node.name
+    ]
 
 
 @pytest.mark.skip("Test not yet implemented")
@@ -378,11 +385,14 @@ def test_ctime(cobbler_api, input_ctime, expected_exception, expected_result):
         assert titem.ctime == expected_result
 
 
-@pytest.mark.parametrize("value,expected_exception", [
-    (0.0, does_not_raise()),
-    (0, pytest.raises(TypeError)),
-    ("", pytest.raises(TypeError))
-])
+@pytest.mark.parametrize(
+    "value,expected_exception",
+    [
+        (0.0, does_not_raise()),
+        (0, pytest.raises(TypeError)),
+        ("", pytest.raises(TypeError)),
+    ],
+)
 def test_mtime(cobbler_api, value, expected_exception):
     # Arrange
     titem = Item(cobbler_api)
@@ -409,7 +419,9 @@ def test_parent(cobbler_api):
 def test_check_if_valid(request, cobbler_api):
     # Arrange
     titem = Item(cobbler_api)
-    titem.name = request.node.originalname if request.node.originalname else request.node.name
+    titem.name = (
+        request.node.originalname if request.node.originalname else request.node.name
+    )
 
     # Act
     titem.check_if_valid()

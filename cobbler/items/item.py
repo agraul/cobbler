@@ -14,10 +14,10 @@ import copy
 import enum
 import fnmatch
 import logging
-import pprint
 import re
 import uuid
-from typing import Any, List, Type, Union, Dict, Set, Optional
+from collections import ChainMap
+from typing import Any, Type, Union, Dict, Set, List
 
 import yaml
 
@@ -117,6 +117,7 @@ class Item:
         self._has_initialized = False
 
         self._parent = ''
+        self._children = []
         self._depth = 0
         self._ctime = 0.0
         self._mtime = 0.0
@@ -168,15 +169,19 @@ class Item:
         if (
             name.startswith("_")
             and not name.startswith("__")
-            and name
-            not in (
+            and name not in (
                 "_conceptual_parent",
                 "_last_cached_mtime",
                 "_cached_dict",
                 "_supported_boot_loaders",
                 "_has_initialized",
+                "_children",
             )
         ):
+            # _children is set to cache its value, invalidating the cache when
+            # _children is set defeats this purpose and causes infinite recursion
+            # because invalidating children calls self.children which sets _children
+
             # Order is important, _is_added_to_api is more expensive and should
             # only be executed after initialization has finished
             if self._has_initialized and self._is_added_to_api():
@@ -192,7 +197,7 @@ class Item:
          self.__invalidate_parents_to_dict_cache(self)
 
     def __invalidate_parents_to_dict_cache(self, node):
-        if not hasattr(node, "parent") or not node.parent:
+        if not getattr(node, "parent", None):
             return
         node.parent.__dict__["_cached_dict"] = {True: None, False: None}
         self.__invalidate_parents_to_dict_cache(node.parent)
@@ -699,12 +704,23 @@ class Item:
         """
 
     @property
-    def children(self) -> Set["Item"]:
+    def children(self) -> List["Item"]:
         """
-        The set of logical children of any depth.
+        The List of logical children of any depth.
 
         :getter:
         """
+        self.logger.debug("Computing children")
+        # We don't care if children is in resolved or raw dict cache
+        caches = ChainMap(
+            self._cached_dict.get(False) or {}, self._cached_dict.get(True) or {}
+        )
+        cached_children = caches.get("children")
+        if cached_children is not None:
+            self.logger.debug("Using cached children")
+            return cached_children
+
+        self.logger.debug("Computing children again")
         children = set()
         for child_type in self.CHILD_TYPES:
             child_objects = self.api.find_items(
@@ -714,7 +730,9 @@ class Item:
             for child_object in child_objects:
                 children.update(child_object)
                 children.update(child_object.children)
-        return children
+        # Save in attribute to get the set into the cache on to_dict
+        self._children = list(children)
+        return self._children
 
     def get_children_names(self, sort_result: bool = False) -> List[str]:
         """
@@ -729,7 +747,7 @@ class Item:
         return result
 
     @property
-    def descendants(self) -> set:
+    def descendants(self) -> List["Item"]:
         """
         Get objects that depend on this object, i.e. those that would be affected by a cascading delete, etc.
 
@@ -945,14 +963,13 @@ class Item:
                      objects raw value.
         :return: A dictionary with all values present in this object.
         """
-        # We check if cached dict exists
         if self._cached_dict[resolved]:
             return self._cached_dict[resolved]
 
         value = {}
         for key in self.__dict__:
             if key.startswith("_") and not key.startswith("__"):
-                if key in ("_conceptual_parent", "_last_cached_mtime", "_cached_dict", "_cached_dict_valid", "_supported_boot_loaders"):
+                if key in ("_conceptual_parent", "_last_cached_mtime", "_cached_dict", "_supported_boot_loaders"):
                     continue
                 new_key = key[1:].lower()
                 key_value = self.__dict__[key]
@@ -994,7 +1011,7 @@ class Item:
 
         :return: The dictionary with the information for serialization.
         """
-        keys_to_drop = ["kickstart", "ks_meta", "remote_grub_kernel", "remote_grub_initrd"]
+        keys_to_drop = ["kickstart", "ks_meta", "remote_grub_kernel", "remote_grub_initrd", "children"]
         result = self.to_dict()
         for key in keys_to_drop:
             result.pop(key, "")
