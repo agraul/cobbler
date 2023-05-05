@@ -1,4 +1,4 @@
-name: Testing Cobbler
+name: Performance testing
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ suma/4.3, suma/head, uyuni/master ]
 
 jobs:
-  run_tests:
+  run_performance_tests:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -19,10 +19,9 @@ jobs:
         shell: 'script -q -e -c "bash {0}"'
         run: |
           docker exec -u 0 -it cobbler bash -c "./docker/develop/scripts/setup-supervisor.sh"
-      - name: Run the Tests inside the Docker Container
+      - name: Run the Performance Tests inside the Docker Container
         shell: 'script -q -e -c "bash {0}"'
         run: |
-          # Excluding "tests/actions/mkloaders_test.py::test_grubimage_run" as it is only prepared for SUMA/Uyuni containers
-          docker exec -u 0 -it cobbler bash -c "pytest  -k 'not test_grubimage_run' --benchmark-skip --cov=./cobbler && codecov --token=1064928c-6477-41be-9ac2-7ce5e6d1fd8b --commit=${GITHUB_SHA}"
+          docker exec -u 0 -it cobbler bash -c "pytest --cov=./cobbler --benchmark-only --benchmark-autosave tests/performance"
       - name: Stop and remove the container
         run: docker stop cobbler && docker rm cobbler
