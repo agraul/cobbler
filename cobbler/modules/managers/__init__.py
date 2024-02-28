@@ -88,13 +88,6 @@ class DhcpManagerModule(ManagerModule):
     TODO
     """
 
-    @abstractmethod
-    def sync_dhcp(self) -> None:
-        """
-        TODO
-        """
-
-
 class DnsManagerModule(ManagerModule):
     """
     TODO
