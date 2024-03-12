@@ -236,3 +236,12 @@ def test_manager_restart_service(mocker: "MockerFixture", api_isc_mock: CobblerA
     assert mocked_service_name.call_count == 1
     assert mocked_restart.call_count == 2
     assert result == 0
+
+
+def test_gen_full_config(api_isc_mock: CobblerAPI):
+    isc.MANAGER = None
+    manager = isc.get_manager(api_isc_mock)
+
+    result = manager.gen_full_config()
+
+    assert result == {}
